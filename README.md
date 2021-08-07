@@ -1,82 +1,117 @@
 # copy-tree-map.py
 
-Copy directory tree with transformations.
+Clones a directory tree while possibly filtering and/or transforming files.
 
-Clones a directory tree while possibly filtering and/or transforming files. At
-the moment it is mostly useful for copy-transcoding nested directory structures 
-containing audio files.
+Each file in the input directory tree is processed by exactly one of the transformations:
+- copy the file as-is
+- transcode the file
+- drop the file (i.e do not copy nor transcode it)
+
+Each resulting file is placed in the output directory, in the same relative position
+as the original was in the input directory.
+
+At the moment it is mostly useful for transcoding audio files in nested directory
+structures. See *Example* below.
 
 # Usage
 
-Please run:
+Run the following to show all available options:
 
     $ python3 copy_tree_map.py --help
 
+Options:
+- `--indir <path>`  path of input directory, not modified during the operation
+- `--outdir <path>` path of output directory, always created during the operation
+- `--ffmpeg <rule>` transcode audio files with ffmpeg, see *Transcoding support* below
+- `--ignore <glob>` skip these files altogether; expects a glob pattern (e.g "\*.txt") to match files.
+- `--concurrency` how many parallel workers are used for `ffmpeg` transcoding operations
+
+**NOTE**: The output directory can exist inside the input directory. The input
+directory is scanned fully before any of the output directories or files are created.
+
 # Example
 
-We have a directory tree 'foo' with various files, including some lossless
+We have a directory tree `foo/` with various files, including some lossless
 audio files (FLAC):
 
     foo/
-        album.jpg
         readme.txt
-        cd1/
+        some/
+            deep/
+                empty/
+                hierarchy/
+                    picture.jpg
+                    another.png
+        bar/
             another.txt
             01.flac
             02.flac
             ...
-        cd2/
+        baz/
             03.flac
             04.flac
             ...
 
 After running
 
-    $ copy_tree_map.py    \
+    $ python3 copy_tree_map.py    \
         --indir foo       \
         --outdir foo_mp3  \
         --ignore "*.txt"  \
         --ffmpeg flac:libmp3lame:mp3:128k
 
-...a new directory `foo_mp3` should have been created with the following contents:
+...a new directory `foo_mp3` should have been created with the following structure and contents:
 
     foo_mp3/
-        album.jpg
-        cd1/
+        some/
+            deep/
+                empty/
+                hierarchy/
+                    picture.jpg
+                    another.png
+        bar/
             01.mp3
             02.mp3
             ...
-        cd2/
+        baz/
             03.mp3
             04.mp3
             ...
 
-Note that `readme.txt` and `another.txt` were dropped, and `flac`'s were converted 
-to `mp3` files. If you inspect the `mp3` files with `ffmpeg`, you'll notice their
-bitrate is 128 kbps.
+Note that
+- `readme.txt` and `another.txt` were dropped
+- the image files were copied as-is
+- the `empty/` directory was created even though there were no files in it.
+- the `.flac` files were converted to `.mp3`, with same names but with extensions replaced.
+
+If you inspect the `.mp3` files with `ffmpeg`, you'll notice they are encoded with
+`libmp3lame` and have bitrate of 128 kbps.
 
 # Transcoding support
 
-At the moment, the supported output audio formats are
-- `libopus`
-- `libmp3lame`
+The `--ffmpeg` option can be used for specifying how some (audio) files should  be
+transcoded to another formats.
 
-The output container type can (or must?) be specified in the `--ffmpeg` option string.
-The option format follows `:`-delimited pattern 
+The `--ffmpeg <rule>` has the following `:`-delimited format:
 
-    <INPUT-EXTENSION>:<OUTPUT-CODEC>:<OUTPUT-EXT>:<BITRATE>
+    --ffmpeg <INPUT-EXTENSION>:<OUTPUT-CODEC>:<OUTPUT-EXT>:<BITRATE>
 
 where
-- `INPUT-EXTENSION`: is used for matchin the files in the source directory, e.g `flac`
+- `INPUT-EXTENSION`: is used for matching the files in the source directory, e.g `flac`
 - `OUTPUT-CODEC`: for example, use `libopus` if you wish to encode to Opus files
 - `OUTPUT-EXT`: which file container to use for the resulting file (`ogg`, for example).
 - `BITRATE`: encoded audio bitrate, for example `192k`
 
+
+**NOTE** - At the moment, the only supported `OUTPUT-CODEC` values are:
+- `libopus`
+- `libmp3lame`
+
 # Dependencies
 
-    - python 3.5 or newer
-    - ffmpeg if you wish to transcode files
-    
+- python 3.5 or newer
+- ffmpeg if you wish to transcode files
+
 # License
 
 Copyright 2018 Markus Holmström (MawKKe)
