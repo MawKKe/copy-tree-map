@@ -23,12 +23,14 @@ Options:
 - `--indir <path>`  path of input directory, not modified during the operation
 - `--outdir <path>` path of output directory, always created during the operation
 - `--ffmpeg <rule>` transcode audio files with ffmpeg, see *Transcoding support* below
-- `--ignore <glob>` skip these files altogether; expects a glob pattern (e.g "\*.txt") to match files.
+- `--ignore <glob>` skip these files altogether; expects a glob pattern (e.g `'*.txt'`") to match files.
 - `--concurrency` how many parallel workers are used for `ffmpeg` transcoding operations
 
 **NOTE**: The output directory can exist inside the input directory. The input
 directory is scanned fully before any of the output directories or files are created.
 
+**NOTE**: Use single quotes around any glob patterns; otherwise your shell
+might expand them before calling the script, causing the rule not to work as expected.
 # Example
 
 We have a directory tree `foo/` with various files, including some lossless
@@ -57,7 +59,7 @@ After running
     $ python3 copy_tree_map.py    \
         --indir foo       \
         --outdir foo_mp3  \
-        --ignore "*.txt"  \
+        --ignore '*.txt'  \
         --ffmpeg flac:libmp3lame:mp3:128k
 
 ...a new directory `foo_mp3` should have been created with the following structure and contents:
