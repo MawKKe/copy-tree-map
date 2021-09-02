@@ -104,7 +104,7 @@ def argument_regex(option, regex=PATT):
     return l[0], {"codec": l[1], "ext": l[2], "bitrate": l[3]}
 
 
-def main(argv):
+def parse_args(argv):
     p = argparse.ArgumentParser(description="Copy directory structure and files, " + 
             "possibly filtering and/or mapping (converting) from one format to another")
 
@@ -124,7 +124,11 @@ def main(argv):
             help="max_workers value (defaults to your cpu count)", type=int)
 
     #args = p.parse_args(argv[1:])
-    args = p.parse_args()
+    args = p.parse_args(argv[1:])
+
+    return args
+
+def _main(args):
 
     #print(args)
     #return 0
@@ -161,6 +165,9 @@ def main(argv):
 
     return 0
 
+def main():
+    sys.exit(_main(parse_args(sys.argv)))
+
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    main()
 
