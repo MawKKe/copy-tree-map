@@ -21,6 +21,7 @@ import re
 import shutil
 import subprocess
 import sys
+import textwrap
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import cpu_count
 
@@ -32,7 +33,8 @@ from multiprocessing import cpu_count
 
 # TODO augment when necessary
 # Even though .opus extension exists, it is not very well supported (yet). I use .ogg instead.
-codec_extmap = { "libopus": ".ogg", "libmp3lame": ".mp3" }
+codec_extmap = {"libopus": ".ogg", "libmp3lame": ".mp3"}
+
 
 # swap_extensions("foo/bar.flac", "mp3") -> "foo/bar.mp3"
 def swap_extension(path, newext):
@@ -43,7 +45,7 @@ def swap_extension(path, newext):
 
 def ffmpeg_conv(src, dst, codec, bitrate):
 
-    cmd = ["ffmpeg" , "-loglevel", "warning", "-i", src, "-c:a", codec, "-b:a", bitrate, "-vn", dst]
+    cmd = ["ffmpeg", "-loglevel", "warning", "-i", src, "-c:a", codec, "-b:a", bitrate, "-vn", dst]
 
     print(">>>> Launching {0}".format(' '.join(cmd)))
 
@@ -52,7 +54,7 @@ def ffmpeg_conv(src, dst, codec, bitrate):
             proc = subprocess.run(cmd)
             proc.check_returncode()
             return True
-        except CalledProcessError as e:
+        except subprocess.CalledProcessError as e:
             print(">>>> Error calling ffmpeg: {0}".format(e))
             return False
 
@@ -86,63 +88,90 @@ def _mycopy(pool, mapfuncs, src, dst, *args, follow_symlinks=True):
 
     else:
         print(">> Copying '{0}' directly (with shutil.copy2)".format(src))
-        return shutil.copy2(src,dst,*args,follow_symlinks=follow_symlinks)
+        return shutil.copy2(src, dst, *args, follow_symlinks=follow_symlinks)
 
 
 # e.g 'flac:libmp3lame:ogg:128k' -> ('flac', 'libmp3lam3', '128k')
-PATT = re.compile("([a-zA-Z0-9]+):([a-zA-Z0-9]+):([a-zA-Z0-9]+):(\d+k)")
+PATT = re.compile(r"([a-zA-Z0-9]+):([a-zA-Z0-9]+):([a-zA-Z0-9]+):(\d+k)")
+
 
 # Custom 'type' for ArgumentParser. Automatic regex matching during argument parsing! <3
 def argument_regex(option, regex=PATT):
     if not regex.match(option):
-        raise argparse.ArgumentTypeError(
-                "Invalid ffmpeg transformation expression! " + 
-                "The format is <INPUT-EXTENSION>:<OUTPUT-CODEC>:<OUTPUT-EXT>:<BITRATE>")
-    l = list(filter(None, regex.split(option))) # some silly empty strings in regex.split() output
-    if l[1] not in codec_extmap.keys():
-        raise argparse.ArgumentTypeError("Unknown codec: {0}".format(l[1]))
-    return l[0], {"codec": l[1], "ext": l[2], "bitrate": l[3]}
+        emsg = "Invalid ffmpeg transformation expression! See --help"
+        raise argparse.ArgumentTypeError(emsg)
+
+    # TODO cleanup this wacky thing, use regex.findall() instead
+    # some silly empty strings in regex.split() output
+    vals = list(filter(None, regex.split(option)))
+
+    if vals[1] not in codec_extmap.keys():
+        raise argparse.ArgumentTypeError("Unknown codec: {0}".format(vals[1]))
+
+    return vals[0], {"codec": vals[1], "ext": vals[2], "bitrate": vals[3]}
 
 
 def parse_args(argv):
-    p = argparse.ArgumentParser(description="Copy directory structure and files, " + 
-            "possibly filtering and/or mapping (converting) from one format to another")
+    description = ("Copy directory structure and files, "
+                   "possibly filtering and/or mapping (converting) "
+                   "from one format to another.")
 
-    # I don't like positional arguments. They are too implicit. 
+    _epilog = \
+    """
+    ---
+
+    The switch --ffmpeg can be used for converting audio files from one format to another.
+    The FFMPEG_RULE expects the following colon-delimited pattern:
+
+        <INPUT-EXTENSION>:<OUTPUT-CODEC>:<OUTPUT-EXTENSION>:<OUTPUT-BITRATE>
+
+    where
+        <INPUT-EXTENSION>  Determines which input files this rule matches (by file extension)
+        <OUTPUT-CODEC>     Selects the output file audio codec should be.
+        <OUTPUT-EXTENSION> Selects the output file extension or container.
+        <OUTPUT-BITRATE>   Selects the output file bitrate, in kbps
+
+    for example, the flag with the following rule:
+
+        --ffmpeg flac:libopus:ogg:192k
+
+    instructs the script to convert all FLAC files into opus, using .ogg containers,
+    with bitrate of 192 kbps. The metadata is copied as-is.
+    """  # noqa: E122
+
+    p = argparse.ArgumentParser(description=description,
+                                epilog=textwrap.dedent(_epilog),
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    # I don't like positional arguments. They are too implicit.
     # Let's be explicit and use --arguments instead
-    p.add_argument("--indir",  required=True, 
-            help="Input directory. Files in this directory are not modified.")
-    p.add_argument("--outdir", required=True, 
-            help="Output directory. Files from INDIR are copied or mapped here")
-    p.add_argument("--ignore", action='append', 
-            help="Neither copy nor map files with these extensions. Glob-pattern aware. For example: --ignore '*.jpg'")
-    p.add_argument("--ffmpeg", action="append", type=argument_regex, 
-            help="Convert (audio) with ffmpeg. MAP equals\
-            <INPUT-EXTENSION>:<OUTPUT-CODEC>:<BITRATE>. For example: --ffmpeg 'flac:libopus:128k'.\
-            Output extension is selected automatically.")
-    p.add_argument("--concurrency", default=cpu_count(), 
-            help="max_workers value (defaults to your cpu count)", type=int)
+    p.add_argument("--indir", required=True,
+                   help="Input directory. Files in this directory are not modified.")
+    p.add_argument("--outdir", required=True,
+                   help="Output directory. Files from INDIR are copied or mapped here")
+    p.add_argument("--ignore", action='append',
+                   help=("Neither copy nor map files with these extensions. "
+                         "Glob-pattern aware. For example: --ignore '*.jpg'"))
+    p.add_argument("--ffmpeg", action="append", type=argument_regex, metavar='FFMPEG_RULE',
+                   help=("Transcode matching audio files with ffmpeg. "
+                         "See FFMPEG_RULE description below"))
+    p.add_argument("--concurrency", default=cpu_count(), metavar='NJOBS', type=int,
+                   help="Number of parallel workers to use. Default value == available cpu count.")
 
-    #args = p.parse_args(argv[1:])
     args = p.parse_args(argv[1:])
 
     return args
 
+
 def _main(args):
 
-    #print(args)
-    #return 0
-
     ffmpeg_map = dict(args.ffmpeg)
+
     print(ffmpeg_map)
-    #return 0
 
     # glob patterns, e.g *.py, *.jpg, foo*
     # NOTE: It is the responsibility of the caller to give proper glob patterns
     ig_patts = list(set(args.ignore)) if args.ignore else None
-
-    #print("ignore:", ig_patts)
-    #print("ffmpeg_map:", ffmpeg_map)
 
     basen = os.path.basename(args.indir)
 
@@ -151,7 +180,7 @@ def _main(args):
     ignore = shutil.ignore_patterns(*ig_patts) if ig_patts else None
 
     print("STARTING")
-    print("-"*30)
+    print("-" * 30)
 
     # Uh... we are running subprocesses inside the threads...?
     # The threads don't do much, just wait for the subprocess to finish :)
@@ -160,14 +189,15 @@ def _main(args):
         mycopy = functools.partial(_mycopy, pool, ffmpeg_map)
         shutil.copytree(args.indir, outd, ignore=ignore, copy_function=mycopy)
 
-    print("-"*30)
+    print("-" * 30)
     print("DONE")
 
     return 0
 
+
 def main():
     sys.exit(_main(parse_args(sys.argv)))
 
+
 if __name__ == "__main__":
     main()
-
