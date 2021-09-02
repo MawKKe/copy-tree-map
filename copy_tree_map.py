@@ -33,7 +33,7 @@ from multiprocessing import cpu_count
 
 # TODO augment when necessary
 # Even though .opus extension exists, it is not very well supported (yet). I use .ogg instead.
-codec_extmap = {"libopus": ".ogg", "libmp3lame": ".mp3"}
+_CODEC_EXTMAP = {"libopus": ".ogg", "libmp3lame": ".mp3"}
 
 
 # swap_extensions("foo/bar.flac", "mp3") -> "foo/bar.mp3"
@@ -92,11 +92,11 @@ def _mycopy(pool, mapfuncs, src, dst, *args, follow_symlinks=True):
 
 
 # e.g 'flac:libmp3lame:ogg:128k' -> ('flac', 'libmp3lam3', '128k')
-PATT = re.compile(r"([a-zA-Z0-9]+):([a-zA-Z0-9]+):([a-zA-Z0-9]+):(\d+k)")
+_PATT = re.compile(r"([a-zA-Z0-9]+):([a-zA-Z0-9]+):([a-zA-Z0-9]+):(\d+k)")
 
 
 # Custom 'type' for ArgumentParser. Automatic regex matching during argument parsing! <3
-def argument_regex(option, regex=PATT):
+def argument_regex(option, regex=_PATT):
     if not regex.match(option):
         emsg = "Invalid ffmpeg transformation expression! See --help"
         raise argparse.ArgumentTypeError(emsg)
@@ -105,7 +105,7 @@ def argument_regex(option, regex=PATT):
     # some silly empty strings in regex.split() output
     vals = list(filter(None, regex.split(option)))
 
-    if vals[1] not in codec_extmap.keys():
+    if vals[1] not in _CODEC_EXTMAP.keys():
         raise argparse.ArgumentTypeError("Unknown codec: {0}".format(vals[1]))
 
     return vals[0], {"codec": vals[1], "ext": vals[2], "bitrate": vals[3]}
