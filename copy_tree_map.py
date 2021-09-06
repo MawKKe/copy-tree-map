@@ -213,6 +213,8 @@ def _main(indir, outdir, ffmpeg_map=None, ignore_patts=None, concurrency=1, verb
     concurrency
         Number of parallel workers to use
     """
+    indir = str(indir)
+    outdir = str(outdir)
     ffmpeg_map = ffmpeg_map or {}
     ignore_patts = ignore_patts or []
     concurrency = max(1, concurrency)
