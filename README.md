@@ -1,4 +1,4 @@
-# copy-tree-map.py
+# copy-tree-map
 
 Clones a directory tree while possibly filtering and/or transforming files.
 
@@ -13,11 +13,29 @@ as the original was in the input directory.
 At the moment it is mostly useful for transcoding audio files in nested directory
 structures. See *Example* below.
 
+# Install
+
+    $ pip install --user git+https://github.com/MawKKe/copy-tree-map
+
+This should place the main script into your user's PATH (`$HOME/.local/bin/` or
+similar). Next, see `Usage` below.
+
+# Development and Testing
+
+Clone the repo, and install the package in development mode:
+
+    $ git clone <url> audiobook-split-ffmpeg && cd audiobook-split-ffmpeg
+    $ pip install -e '.[dev]'
+
+then run tests with:
+
+    $ pytest -vv
+
 # Usage
 
 Run the following to show all available options:
 
-    $ python3 copy_tree_map.py --help
+    $ copy-tree-map --help
 
 Options:
 - `--indir <path>`  path of input directory, not modified during the operation
@@ -31,6 +49,7 @@ directory is scanned fully before any of the output directories or files are cre
 
 **NOTE**: Use single quotes around any glob patterns; otherwise your shell
 might expand them before calling the script, causing the rule not to work as expected.
+
 # Example
 
 We have a directory tree `foo/` with various files, including some lossless
@@ -56,7 +75,7 @@ audio files (FLAC):
 
 After running
 
-    $ python3 copy_tree_map.py    \
+    $ copy-tree-map \
         --indir foo       \
         --outdir foo_mp3  \
         --ignore '*.txt'  \
