@@ -98,6 +98,7 @@ def _mycopy(pool, futures, mapfuncs, src, _dst, *args, verbose=False, **kwargs):
 # e.g 'flac:libmp3lame:ogg:128k' -> ('flac', 'libmp3lam3', '128k')
 _PATT = re.compile(r"([a-zA-Z0-9]+):([a-zA-Z0-9]+):([a-zA-Z0-9]+):(\d+k)")
 
+
 def parse_ffmpeg_rule(rule):
     parsed = _PATT.findall(rule)
     if not parsed:
@@ -105,11 +106,12 @@ def parse_ffmpeg_rule(rule):
     vals = parsed[0]
     return vals[0], {"codec": vals[1], "ext": vals[2], "bitrate": vals[3]}
 
+
 class FFMPEGRuleAction(argparse.Action):
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
-    #    print("Hello????", file=sys.stderr)
         self._nargs = nargs
         super(FFMPEGRuleAction, self).__init__(option_strings, dest, nargs=nargs, **kwargs)
+
     def __call__(self, parser, namespace, values, option_string=None):
         def _gen():
             for val in values:
@@ -200,7 +202,7 @@ def _main(indir, outdir, ffmpeg_map=None, ignore_patts=None, concurrency=1, verb
     outdir
         The output directory, must not exist already
     ffmpeg_map
-        A dictionary of dictionaries; instructions on how to convert input 
+        A dictionary of dictionaries; instructions on how to convert input
         audio file (by extension - the toplevel keys) into some other format (the
         value-dictionary). For example, the following ffmpeg_map:
             {'flac': {'codec': 'libopus', 'ext': 'ogg', 'bitrate': '192k'}}
@@ -238,7 +240,7 @@ def _main(indir, outdir, ffmpeg_map=None, ignore_patts=None, concurrency=1, verb
     # TODO: use asyncio or something...
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
 
-        # Produce a function with the appropriate copy_function signature 
+        # Produce a function with the appropriate copy_function signature
         # that copytree() expects
         mycopy = functools.partial(_mycopy, pool, futures,
                                    ffmpeg_map, verbose=verbose)
@@ -261,7 +263,7 @@ def _main(indir, outdir, ffmpeg_map=None, ignore_patts=None, concurrency=1, verb
                 continue
             failed.append(res)
             warn = "WARNING: the operation '{}' from '{}' to '{}' failed: {}"
-            print(warn.format(res["cmd"][0], res["src"], res["dst"], res["msg"]))
+            print(warn.format(res["cmd"][0], res["src"], res["dst"], res["msg"]), file=sys.stderr)
 
         if verbose:
             print("---")
@@ -273,7 +275,8 @@ def _main(indir, outdir, ffmpeg_map=None, ignore_patts=None, concurrency=1, verb
     n_ok   = n_tot - n_fail  - n_ign
 
     if n_fail > 0:
-        print("WARNING: there were errors. One or more files were not copied/converted.")
+        print("WARNING: there were errors. One or more files were not copied/converted.",
+              file=sys.stderr)
 
     print("Finished. Success: {}, Ignored: {}, Failed: {} (Total: {})".format(n_ok, n_ign,
                                                                               n_fail, n_tot))
