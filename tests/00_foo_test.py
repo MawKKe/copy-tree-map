@@ -1,4 +1,4 @@
-from copy_tree_map import swap_extension
 
-def test_swapext():    
-     assert swap_extension("foo/bar.flac", "mp3") == "foo/bar.mp3"
+def test_todo():    
+    # TODO refactor code into something that can be tested, and write more tests
+    assert False
